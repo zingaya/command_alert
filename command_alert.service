@@ -1,0 +1,14 @@
+[Unit]
+Description=Command Alert Service
+After=network.target
+
+[Service]
+Type=simple
+StandardOutput=journal
+StandardError=journal
+Restart=always
+ExecStart=/usr/bin/python3 -u /root/command_alert.py
+ExecStop=/bin/bash -c 'rm -f /var/run/command_alert.pid'
+
+[Install]
+WantedBy=multi-user.target
