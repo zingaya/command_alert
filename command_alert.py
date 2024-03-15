@@ -98,7 +98,7 @@ def main():
            return
 
 if __name__ == "__main__":
-    pid_file = '/var/run/bet_alert.pid'
+    pid_file = '/var/run/command_alert.pid'
     if os.path.exists(pid_file):
         print("Daemon is already running.")
         sys.exit(1)
