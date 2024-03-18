@@ -18,19 +18,22 @@ EMAIL_BODY = 'Body of the email'
 COMMAND = "echo 'this is a test'"
 # Where to save (will overwrite)
 FILE_PATH = '/tmp/command_alert.txt'
+# Send the file as attachment or in the body?
+AS_ATTACHMENT = False
 # Next execution (in seconds)
 SLEEP_INTERVAL = 60  # 0 = run once
 
 def send_email_with_attachment():
     if DISABLE_SMTP:
-        print("Email sending disabled. Content of the file and recipients:")        
+        print("Email sending disabled. Content of the file and recipients:")
         with open(FILE_PATH, 'r') as file:
             print("File content:")
             print(file.read())
+            f.close()
         return
-    
+
     # Check if file is empty
-    if os.path.getsize(FILE_PATH) <= 6:  # Less than 6 bytes, will avoid sending if it has a single string like a 'NULL'
+    if os.path.getsize(FILE_PATH) <= 6:
         print("File content is empty." , "Not sending any notification.")
         return
 
@@ -38,14 +41,21 @@ def send_email_with_attachment():
     msg['From'] = FROM_EMAIL
     msg['To'] = ', '.join(TO_EMAILS)
     msg['Subject'] = EMAIL_SUBJECT
-
-    msg.attach(MIMEText(EMAIL_BODY, 'plain'))
-
-    with open(FILE_PATH, 'rb') as file:
-        attachment = MIMEApplication(file.read(), Name='attachment_name')
-        attachment['Content-Disposition'] = 'attachment; filename="{}"'.format(FILE_PATH.split("/")[-1])
-        msg.attach(attachment)
-
+    
+    if AS_ATTACHMENT:    
+        msg.attach(MIMEText(EMAIL_BODY, 'plain'))
+        with open(FILE_PATH, 'rb') as file:
+            attachment = MIMEApplication(file.read(), Name='attachment_name')
+            attachment['Content-Disposition'] = 'attachment; filename="{}"'.format(FILE_PATH.split("/")[-1])
+            msg.attach(attachment)
+        file.close()
+    else:             
+        EMAIL_BODY2 = EMAIL_BODY + '\n'
+        with open(FILE_PATH, 'r') as file:
+            EMAIL_BODY2 += file.read()
+        msg.attach(MIMEText(EMAIL_BODY2, 'plain'))
+        file.close()
+                
     try:
         print("Got content to send. Establishing connection to SMTP server:", SMTP_SERVER)
         socket.setdefaulttimeout(5)
@@ -56,7 +66,7 @@ def send_email_with_attachment():
             server.starttls()
         elif SMTP_SEC == 'ssl':
             server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
-        
+
         # Enable debugging
         server.set_debuglevel(0)
 
@@ -68,11 +78,11 @@ def send_email_with_attachment():
                 server.sendmail(FROM_EMAIL, EMAIL, msg.as_string())
             except Exception as e:
                 print("Cannot send to:", EMAIL, e)
-        
+
             server.rset()
 
         server.quit()
-        
+
         print("Email sent to:", TO_EMAILS)
     except Exception as e:
         print("Error:", e)  # Print exception details
@@ -82,9 +92,13 @@ def execute_command_and_write_to_file():
     print("Executing command:", COMMAND)
     process = subprocess.Popen(COMMAND, shell=True, stdout=subprocess.PIPE)
     stdout, _ = process.communicate()
-    stdout_str = str(stdout).replace('\\n', '\n')
+    if sys.version_info >= (3, 0):
+        stdout_str = str(stdout,'utf-8').replace('\\n', '\n')
+    else:
+        stdout_str = str(stdout).replace('\\n', '\n')
     with open(FILE_PATH, 'w') as file:
         file.write(stdout_str)
+        file.close()
 
 def main():
     while True:        
